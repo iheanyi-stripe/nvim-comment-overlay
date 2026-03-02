@@ -1,0 +1,303 @@
+*comment-overlay.txt*  Google Docs-style inline comments for Neovim
+
+Author:  hqu
+License: MIT
+Requires: Neovim >= 0.7
+
+==============================================================================
+CONTENTS                                           *comment-overlay-contents*
+
+  1. Introduction ......................... |comment-overlay-introduction|
+  2. Installation ......................... |comment-overlay-installation|
+  3. Setup ................................ |comment-overlay-setup|
+  4. Workflow ............................. |comment-overlay-workflow|
+  5. Commands ............................. |comment-overlay-commands|
+  6. Keymaps .............................. |comment-overlay-keymaps|
+  7. Configuration ........................ |comment-overlay-configuration|
+  8. Highlights ........................... |comment-overlay-highlights|
+  9. Storage .............................. |comment-overlay-storage|
+ 10. API .................................. |comment-overlay-api|
+
+==============================================================================
+1. INTRODUCTION                                *comment-overlay-introduction*
+
+comment-overlay adds Google Docs-style inline comments to any file in Neovim.
+Add comments to any line or selection, see them highlighted with visual cues,
+and browse them in a side panel.
+
+Features:
+- Line highlights with a tinted background on commented lines
+- Sign column icons (󰆉) for quick scanning
+- Virtual text previews at end-of-line showing truncated comment body
+- Floating windows for adding, editing, and previewing comments
+- Side panel listing all comments with navigation and inline actions
+- Resolved/active status tracking per comment
+- Dark and light theme support (auto-detected from colorscheme)
+- Per-project storage in `.nvim-comments.json` at project root
+
+Pure Lua. No dependencies.
+
+==============================================================================
+2. INSTALLATION                                *comment-overlay-installation*
+
+>lua
+  {
+    "hqu/nvim-comment-overlay",
+    event = "BufReadPost",
+    config = function()
+      require("comment-overlay").setup()
+    end,
+  }
+<
+
+==============================================================================
+3. SETUP                                              *comment-overlay-setup*
+
+                                                   *comment-overlay.setup()*
+>lua
+  require("comment-overlay").setup({opts})
+<
+Call `setup()` to initialize the plugin. All options are optional; see
+|comment-overlay-configuration| for the full list and defaults.
+
+==============================================================================
+4. WORKFLOW                                          *comment-overlay-workflow*
+
+This plugin pairs well with a Claude Code skill or custom command that reads
+`.nvim-comments.json`, incorporates the comments as context, and suggests
+improvements directly in your codebase. Add comments as you review, then let
+your AI assistant process them in bulk.
+
+==============================================================================
+5. COMMANDS                                        *comment-overlay-commands*
+
+All actions are available as user commands.
+
+                                                              *:CommentAdd*
+:CommentAdd             Add a comment on the current line. Supports a range
+                        in visual mode (e.g., `:'<,'>CommentAdd`).
+
+                                                           *:CommentDelete*
+:CommentDelete          Delete the comment under the cursor. Prompts for
+                        confirmation. If multiple comments exist on the line,
+                        prompts for selection first.
+
+                                                             *:CommentEdit*
+:CommentEdit            Edit the comment under the cursor in a floating
+                        window.
+
+                                                          *:CommentPreview*
+:CommentPreview         Preview the comment under the cursor in a read-only
+                        floating window showing full body and metadata.
+
+                                                          *:CommentResolve*
+:CommentResolve         Toggle the resolved/active status of the comment
+                        under the cursor. Resolved comments show a green
+                        tint and a checkmark.
+
+                                                             *:CommentList*
+:CommentList            Toggle the comment list panel. See
+                        |comment-overlay-list-panel|.
+
+                                                             *:CommentNext*
+:CommentNext            Jump to the next comment in the file. Wraps to the
+                        first comment when past the last.
+
+                                                             *:CommentPrev*
+:CommentPrev            Jump to the previous comment in the file. Wraps to
+                        the last comment when before the first.
+
+                                                      *:CommentToggleSigns*
+:CommentToggleSigns     Toggle visibility of all comment decorations (line
+                        highlights, signs, and virtual text) across all
+                        buffers.
+
+==============================================================================
+6. KEYMAPS                                          *comment-overlay-keymaps*
+
+Global ~
+                                              *comment-overlay-keymap-add*
+`<leader>ca`  (n)       Add comment on the current line.
+`<leader>ca`  (v)       Add comment on the selected lines.
+                                              *comment-overlay-keymap-edit*
+`<leader>ce`  (n)       Edit comment under cursor.
+                                              *comment-overlay-keymap-delete*
+`<leader>cd`  (n)       Delete comment under cursor.
+                                              *comment-overlay-keymap-list*
+`<leader>cl`  (n)       Toggle comment list panel.
+                                              *comment-overlay-keymap-signs*
+`<leader>cs`  (n)       Toggle sign/highlight visibility.
+                                              *comment-overlay-keymap-next*
+`]c`          (n)       Jump to next comment.
+                                              *comment-overlay-keymap-prev*
+`[c`          (n)       Jump to previous comment.
+
+Floating windows (add/edit) ~
+
+`<C-s>`                 Save and close.
+`<CR>`                  Save and close (normal mode).
+`q`                     Close without saving.
+`<Esc>`                 Close without saving.
+
+                                            *comment-overlay-list-panel*
+List panel ~
+
+`<CR>` / `o`            Jump to comment location in source buffer.
+`e`                     Edit comment.
+`d`                     Delete comment (with confirmation).
+`r`                     Toggle resolved/active status.
+`j` / `k`               Jump to next/previous comment in the list.
+`a`                     Add new comment (switches to source buffer).
+`q`                     Close panel.
+
+All keymaps can be customized; see |comment-overlay-configuration|.
+
+==============================================================================
+7. CONFIGURATION                              *comment-overlay-configuration*
+
+Pass a table to `setup()`. All fields are optional; these are the defaults:
+
+>lua
+  require("comment-overlay").setup({
+    signs = {
+      enabled = true,          -- show gutter icons
+      icon = "󰆉",              -- nerd font comment icon
+      hl = "CommentOverlaySign",
+    },
+    highlights = {
+      comment_bg = "CommentOverlayBg",
+      comment_icon = "CommentOverlaySign",
+      comment_virt = "CommentOverlayVirt",
+      comment_border = "CommentOverlayBorder",
+      comment_title = "CommentOverlayTitle",
+      comment_count = "CommentOverlayCount",
+    },
+    float = {
+      width = 60,              -- columns
+      height = 10,             -- rows
+      border = "rounded",      -- see :h nvim_open_win
+      title_pos = "center",
+    },
+    list = {
+      position = "right",      -- "right", "left", or "bottom"
+      width = 40,              -- for left/right position
+      height = 15,             -- for bottom position
+      auto_preview = true,
+    },
+    storage = {
+      path = nil,              -- nil = auto-detect project root via .git
+      filename = ".nvim-comments.json",
+    },
+    keymaps = {
+      add = "<leader>ca",
+      delete = "<leader>cd",
+      edit = "<leader>ce",
+      next = "]c",
+      prev = "[c",
+      toggle_list = "<leader>cl",
+      toggle_signs = "<leader>cs",
+    },
+  })
+<
+
+                                      *comment-overlay-config-signs*
+signs.enabled           Boolean. Show gutter icons on commented lines.
+signs.icon              String. The sign text displayed in the sign column.
+signs.hl                String. Highlight group for the sign icon.
+
+                                      *comment-overlay-config-float*
+float.width             Number. Width of floating windows in columns.
+float.height            Number. Height of floating windows in rows.
+float.border            String or table. Border style (see |nvim_open_win()|).
+float.title_pos         String. Title position: "left", "center", or "right".
+
+                                      *comment-overlay-config-list*
+list.position           String. Where to open the list panel.
+                        "right" (default), "left", or "bottom".
+list.width              Number. Panel width for left/right positions.
+list.height             Number. Panel height for bottom position.
+list.auto_preview       Boolean. Reserved for future use.
+
+                                      *comment-overlay-config-storage*
+storage.path            String or nil. Explicit project root path. When nil,
+                        the plugin walks up from CWD looking for a `.git`
+                        directory, then for an existing storage file, then
+                        falls back to CWD.
+storage.filename        String. Name of the JSON file storing comments.
+
+                                      *comment-overlay-config-keymaps*
+keymaps.add             String. Keymap to add a comment.
+keymaps.delete          String. Keymap to delete a comment.
+keymaps.edit            String. Keymap to edit a comment.
+keymaps.next            String. Keymap to jump to the next comment.
+keymaps.prev            String. Keymap to jump to the previous comment.
+keymaps.toggle_list     String. Keymap to toggle the list panel.
+keymaps.toggle_signs    String. Keymap to toggle decoration visibility.
+
+==============================================================================
+8. HIGHLIGHTS                                    *comment-overlay-highlights*
+
+All highlight groups are derived from the active colorscheme's Normal
+background and tinted with a purple-blue hue. They update automatically on
+|ColorScheme| events.
+
+  Group                        Default appearance ~
+  `CommentOverlayBg`             Subtle purple tint on the line background
+  `CommentOverlaySign`           Brightened tint color for the gutter icon
+  `CommentOverlayVirt`           Muted tint, italic, for virtual text previews
+  `CommentOverlayBorder`         Muted tint for floating window borders
+  `CommentOverlayTitle`          Bright tint, bold, for floating window titles
+  `CommentOverlayCount`          Inverted tint for count badges
+  `CommentOverlayResolved`       Green tint background, italic, for resolved
+
+Override any group after `setup()` or in a |ColorScheme| autocommand:
+>lua
+  vim.api.nvim_set_hl(0, "CommentOverlayBg", { bg = "#2a2a3a" })
+<
+
+==============================================================================
+9. STORAGE                                          *comment-overlay-storage*
+
+Comments are persisted in a `.nvim-comments.json` file at the project root
+(auto-detected via `.git` directory). The file is human-readable JSON.
+
+You can:
+- Commit it to share comments with your team.
+- Add it to `.gitignore` to keep comments private.
+
+Storage path resolution order:
+1. Explicit `storage.path` if configured.
+2. Walk up from CWD looking for `.git` directory.
+3. Walk up from CWD looking for an existing `.nvim-comments.json`.
+4. Fall back to CWD.
+
+Each comment stores:
+  - `id`          Unique identifier (timestamp + random hex)
+  - `file`        Relative path from project root
+  - `line_start`  First line (1-indexed)
+  - `line_end`    Last line (1-indexed, inclusive)
+  - `body`        Comment text
+  - `author`      Optional author name
+  - `created_at`  ISO 8601 timestamp
+  - `updated_at`  ISO 8601 timestamp
+  - `resolved`    Boolean
+
+==============================================================================
+10. API                                                *comment-overlay-api*
+
+The Lua API is available via `require("comment-overlay")`.
+
+                                                   *comment-overlay.setup()*
+setup({opts})           Initialize the plugin. See
+                        |comment-overlay-configuration|.
+
+                                             *comment-overlay.add_comment()*
+add_comment()           Add a comment on the current cursor line. Opens a
+                        floating window for text input.
+
+                                            *comment-overlay.edit_comment()*
+edit_comment({id})      Edit a comment by its ID. Opens a floating window
+                        pre-filled with the existing body.
+
+==============================================================================
+ vim:tw=78:ts=8:ft=help:norl:

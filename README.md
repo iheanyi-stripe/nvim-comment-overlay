@@ -17,8 +17,6 @@ Pure Lua. No dependencies. Requires Neovim 0.7+.
 
 ## Installation
 
-### lazy.nvim
-
 ```lua
 {
   "hqu/nvim-comment-overlay",
@@ -29,43 +27,9 @@ Pure Lua. No dependencies. Requires Neovim 0.7+.
 }
 ```
 
-### Local (development)
+## Workflow
 
-```lua
-{
-  dir = "~/path/to/nvim-comment-overlay",
-  event = "BufReadPost",
-  config = function()
-    require("comment-overlay").setup()
-  end,
-}
-```
-
-### Manual
-
-```lua
-vim.opt.runtimepath:prepend("~/path/to/nvim-comment-overlay")
-require("comment-overlay").setup()
-```
-
-## Usage
-
-### Adding a comment
-
-1. Place cursor on a line and press `<leader>ca` to comment that line
-2. Or select multiple lines in visual mode and press `<leader>ca`
-3. A floating window opens — type your comment and press `<C-s>` or `<CR>` to save
-
-### Viewing comments
-
-- Commented lines show an amber background, a gutter icon, and a preview at end-of-line
-- Multiple comments on the same line are separated by `│` in the virtual text
-- Press `<leader>cl` to open the comment list panel
-
-### Navigating comments
-
-- `]c` and `[c` jump to the next/previous comment in the file
-- The list panel lets you browse and jump to any comment
+This plugin pairs well with a Claude Code skill or custom command that reads `.nvim-comments.json`, incorporates the comments as context, and suggests improvements directly in your codebase. Add comments as you review, then let your AI assistant process them in bulk.
 
 ## Keymaps
 
