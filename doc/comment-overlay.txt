@@ -287,7 +287,7 @@ Each comment stores:
 
 The Lua API is available via `require("comment-overlay")`.
 
-                                                   *comment-overlay.setup()*
+                                                      *comment-overlay-api-setup*
 setup({opts})           Initialize the plugin. See
                         |comment-overlay-configuration|.
 
