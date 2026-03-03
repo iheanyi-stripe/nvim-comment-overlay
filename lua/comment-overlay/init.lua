@@ -294,6 +294,13 @@ local function register_commands()
     refresh_from_disk(true)
   end, {})
 
+  -- Undocumented maintenance command for pre-release data cleanup.
+  vim.api.nvim_create_user_command("CommentMigrateRepliesToRoot", function()
+    local updated = store.migrate_replies_to_root()
+    refresh_all()
+    vim.notify(string.format("Reply migration complete: %d updated", updated), vim.log.levels.INFO)
+  end, {})
+
   vim.api.nvim_create_user_command("CommentListWidth", function(cmd)
     local size = tonumber(cmd.args)
     if not size then

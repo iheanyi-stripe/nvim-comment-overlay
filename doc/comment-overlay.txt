@@ -296,7 +296,7 @@ Each comment stores:
   - `author`      Optional author name
   - `kind`        `"comment"` (default) or `"reply"`
   - `thread_id`   Root comment id for the thread
-  - `parent_id`   Parent comment id (for replies)
+  - `parent_id`   Root comment id (for one-level replies)
   - `resolved_by` Optional actor that resolved the comment
   - `resolved_at` ISO 8601 timestamp when resolved
   - `created_at`  ISO 8601 timestamp

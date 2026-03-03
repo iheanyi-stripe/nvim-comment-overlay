@@ -59,7 +59,7 @@ local M = {}
 ---@field author string|nil
 ---@field kind string|nil  -- "comment" | "reply" (nil treated as "comment")
 ---@field thread_id string|nil  -- root comment id
----@field parent_id string|nil  -- parent comment id for replies
+---@field parent_id string|nil  -- root comment id for one-level replies
 ---@field resolved_by string|nil
 ---@field resolved_at string|nil  -- ISO 8601
 ---@field created_at string  -- ISO 8601

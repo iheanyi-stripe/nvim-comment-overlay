@@ -308,6 +308,7 @@ function M.add(file, line_start, line_end, body, author, parent_id)
 end
 
 --- Add a reply to an existing comment/thread item.
+--- Replies are always attached to the thread root (one-level thread model).
 ---@param parent_id string
 ---@param body string
 ---@param author string|nil
@@ -318,7 +319,9 @@ function M.add_reply(parent_id, body, author)
   if not parent then
     return nil
   end
-  return M.add(parent.file, parent.line_start, parent.line_end, body, author, parent.id)
+  local root_id = thread_id(parent)
+  local root = M.get(root_id) or parent
+  return M.add(root.file, root.line_start, root.line_end, body, author, root.id)
 end
 
 --- Get a comment by its ID.
@@ -492,6 +495,27 @@ end
 function M.get_all()
   ensure_loaded()
   return comments
+end
+
+--- Rewrite reply parent references so each reply points to the thread root.
+--- Backward-compatible migration for older nested parent chains.
+---@return number updated_count
+function M.migrate_replies_to_root()
+  ensure_loaded()
+  local updated = 0
+  for _, c in ipairs(comments) do
+    if is_reply(c) then
+      local root_id = thread_id(c)
+      if c.parent_id ~= root_id then
+        c.parent_id = root_id
+        updated = updated + 1
+      end
+    end
+  end
+  if updated > 0 then
+    M.save()
+  end
+  return updated
 end
 
 --- Force reload comments from disk.

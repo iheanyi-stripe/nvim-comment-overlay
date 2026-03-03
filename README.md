@@ -12,7 +12,7 @@ Pure Lua. No dependencies. Requires Neovim 0.7+.
 - **Reply-aware line previews** showing thread activity like `(2 replies)`
 - **Floating windows** for adding, editing, and previewing comments
 - **Side panel** listing all comments with status, navigation, and inline actions
-- **Threaded discussions** with per-comment replies in the side panel
+- **Threaded discussions** with one-level replies in the side panel
 - **Resolved/active** status tracking per comment
 - **Dark and light** theme support (auto-detected)
 - **Per-project storage** in `.nvim-comments.json` at project root
@@ -147,7 +147,7 @@ Comments are stored in `.nvim-comments.json` at the project root (auto-detected 
 Threaded comments use:
 - `kind`: `"comment"` or `"reply"`
 - `thread_id`: root comment id for a thread
-- `parent_id`: direct parent comment id (replies only)
+- `parent_id`: root comment id for replies (one-level threads)
 
 By default, new comments are attributed to your `$USER`/`$LOGNAME`, and resolving a comment records `resolved_by` with the same actor. To override this (for agents), set either:
 
