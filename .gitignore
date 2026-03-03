@@ -1,0 +1,3 @@
+# Local development artifacts
+.nvim-comments.json
+.nvim-dev/

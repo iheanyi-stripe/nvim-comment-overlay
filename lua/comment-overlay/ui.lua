@@ -209,6 +209,15 @@ function M.open_preview(comment)
   if author ~= "" then
     table.insert(meta_parts, "Author: " .. author)
   end
+  if comment.kind == "reply" then
+    table.insert(meta_parts, "Type: Reply")
+  end
+  if comment.resolved and comment.resolved_by and comment.resolved_by ~= "" then
+    table.insert(meta_parts, "Resolved by: " .. comment.resolved_by)
+  end
+  if comment.resolved and comment.resolved_at and comment.resolved_at ~= "" then
+    table.insert(meta_parts, "Resolved at: " .. comment.resolved_at)
+  end
   if #meta_parts > 0 then
     table.insert(content, " " .. table.concat(meta_parts, "  "))
   end

@@ -23,7 +23,7 @@ end
 ---@return Comment[]
 local function comments_at_line(lnum)
   lnum = lnum or vim.api.nvim_win_get_cursor(0)[1]
-  return store.get_for_line(current_file(), lnum)
+  return store.get_for_line(current_file(), lnum, { roots_only = true })
 end
 
 --- Pick a single comment from a list, prompting if multiple.
@@ -82,6 +82,35 @@ local function render_buf(bufnr)
   highlights.refresh(bufnr, comments)
 end
 
+--- Refresh comment overlays (and list panel) across loaded buffers.
+local function refresh_all()
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(bufnr) then
+      local name = vim.api.nvim_buf_get_name(bufnr)
+      if name ~= "" then
+        if signs_visible then
+          render_buf(bufnr)
+        else
+          highlights.clear_buffer(bufnr)
+        end
+      end
+    end
+  end
+  if list.is_open and list.is_open() then
+    list.refresh()
+  end
+end
+
+--- Force reload comments from disk and repaint UI.
+---@param notify boolean|nil
+local function refresh_from_disk(notify)
+  store.reload()
+  refresh_all()
+  if notify ~= false then
+    vim.notify("Comments refreshed", vim.log.levels.INFO)
+  end
+end
+
 ---------------------------------------------------------------------------
 -- Actions
 ---------------------------------------------------------------------------
@@ -92,8 +121,23 @@ end
 local function add_comment(line_start, line_end)
   local file = current_file()
   ui.open_add(line_start, line_end, function(body)
-    store.add(file, line_start, line_end, body)
+    store.add(file, line_start, line_end, body, config.get_actor())
     refresh_buf()
+  end)
+end
+
+--- Add a reply under the cursor's thread.
+local function reply_comment()
+  local comments = comments_at_line()
+  pick_comment(comments, function(comment)
+    ui.open_add(comment.line_start, comment.line_end, function(body)
+      local reply = store.add_reply(comment.id, body, config.get_actor())
+      if not reply then
+        vim.notify("Unable to add reply", vim.log.levels.WARN)
+        return
+      end
+      refresh_buf()
+    end)
   end)
 end
 
@@ -132,7 +176,7 @@ end
 local function resolve_comment()
   local comments = comments_at_line()
   pick_comment(comments, function(comment)
-    store.resolve(comment.id)
+    store.resolve(comment.id, config.get_actor())
     refresh_buf()
   end)
 end
@@ -140,7 +184,7 @@ end
 --- Jump to the next comment in the current file.
 local function next_comment()
   local file = current_file()
-  local comments = store.get_for_file(file)
+  local comments = store.get_for_file(file, { roots_only = true })
   if #comments == 0 then
     vim.notify("No comments in this file", vim.log.levels.INFO)
     return
@@ -162,7 +206,7 @@ end
 --- Jump to the previous comment in the current file.
 local function prev_comment()
   local file = current_file()
-  local comments = store.get_for_file(file)
+  local comments = store.get_for_file(file, { roots_only = true })
   if #comments == 0 then
     vim.notify("No comments in this file", vim.log.levels.INFO)
     return
@@ -226,6 +270,10 @@ local function register_commands()
     resolve_comment()
   end, {})
 
+  vim.api.nvim_create_user_command("CommentReply", function()
+    reply_comment()
+  end, {})
+
   vim.api.nvim_create_user_command("CommentList", function()
     list.toggle()
   end, {})
@@ -241,6 +289,21 @@ local function register_commands()
   vim.api.nvim_create_user_command("CommentToggleSigns", function()
     toggle_signs()
   end, {})
+
+  vim.api.nvim_create_user_command("CommentRefresh", function()
+    refresh_from_disk(true)
+  end, {})
+
+  vim.api.nvim_create_user_command("CommentListWidth", function(cmd)
+    local size = tonumber(cmd.args)
+    if not size then
+      vim.notify("Usage: :CommentListWidth <number>", vim.log.levels.WARN)
+      return
+    end
+    if not list.set_size or not list.set_size(size) then
+      vim.notify("Invalid size; must be >= 20", vim.log.levels.WARN)
+    end
+  end, { nargs = 1 })
 end
 
 ---------------------------------------------------------------------------
@@ -303,8 +366,21 @@ local function register_autocommands()
   vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
     group = group,
     callback = function(ev)
+      local changed = store.reload_if_changed()
+      if changed then
+        refresh_all()
+      end
       if signs_visible then
         render_buf(ev.buf)
+      end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("FocusGained", {
+    group = group,
+    callback = function()
+      if store.reload_if_changed() then
+        refresh_all()
       end
     end,
   })
@@ -352,6 +428,28 @@ function M.add_comment()
   add_comment(lnum, lnum)
 end
 
+--- Reply to a comment by ID (or comment under cursor when nil).
+---@param comment_id? string
+function M.reply_comment(comment_id)
+  if comment_id then
+    local comment = store.get(comment_id)
+    if not comment then
+      vim.notify("Comment not found", vim.log.levels.WARN)
+      return
+    end
+    ui.open_add(comment.line_start, comment.line_end, function(body)
+      local reply = store.add_reply(comment.id, body, config.get_actor())
+      if not reply then
+        vim.notify("Unable to add reply", vim.log.levels.WARN)
+        return
+      end
+      refresh_buf()
+    end)
+    return
+  end
+  reply_comment()
+end
+
 --- Edit a comment by ID (used by list panel 'e' keymap).
 ---@param comment_id string
 function M.edit_comment(comment_id)
@@ -364,6 +462,11 @@ function M.edit_comment(comment_id)
     store.update(comment.id, body)
     refresh_buf()
   end)
+end
+
+--- Force reload comments from disk and repaint all visible overlays.
+function M.refresh()
+  refresh_from_disk(true)
 end
 
 return M

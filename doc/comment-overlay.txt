@@ -95,6 +95,10 @@ All actions are available as user commands.
                         under the cursor. Resolved comments show a green
                         tint and a checkmark.
 
+                                                            *:CommentReply*
+:CommentReply           Reply to the comment under the cursor. Creates a
+                        threaded reply linked to the same code range.
+
                                                              *:CommentList*
 :CommentList            Toggle the comment list panel. See
                         |comment-overlay-list-panel|.
@@ -106,6 +110,13 @@ All actions are available as user commands.
                                                              *:CommentPrev*
 :CommentPrev            Jump to the previous comment in the file. Wraps to
                         the last comment when before the first.
+
+                                                          *:CommentRefresh*
+:CommentRefresh         Reload comments from disk and repaint overlays/list.
+
+                                                        *:CommentListWidth*
+:CommentListWidth {n}   Set list panel size. For left/right panels, adjusts
+                        width; for bottom panel, adjusts height.
 
                                                       *:CommentToggleSigns*
 :CommentToggleSigns     Toggle visibility of all comment decorations (line
@@ -144,8 +155,13 @@ List panel ~
 
 `<CR>` / `o`            Jump to comment location in source buffer.
 `e`                     Edit comment.
+`t`                     Reply to selected comment/thread item.
 `d`                     Delete comment (with confirmation).
-`r`                     Toggle resolved/active status.
+`r`                     Toggle resolved/active on the parent thread.
+`f`                     Toggle focused thread view (thread/all).
+`z`                     Toggle collapse for selected thread.
+`+` / `-`               Increase/decrease panel size.
+`R`                     Reload comments from disk.
 `j` / `k`               Jump to next/previous comment in the list.
 `a`                     Add new comment (switches to source buffer).
 `q`                     Close panel.
@@ -278,9 +294,31 @@ Each comment stores:
   - `line_end`    Last line (1-indexed, inclusive)
   - `body`        Comment text
   - `author`      Optional author name
+  - `kind`        `"comment"` (default) or `"reply"`
+  - `thread_id`   Root comment id for the thread
+  - `parent_id`   Parent comment id (for replies)
+  - `resolved_by` Optional actor that resolved the comment
+  - `resolved_at` ISO 8601 timestamp when resolved
   - `created_at`  ISO 8601 timestamp
   - `updated_at`  ISO 8601 timestamp
   - `resolved`    Boolean
+
+Actor attribution:
+- By default, `author`/`resolved_by` use `$USER` (or `$LOGNAME`).
+- Override for agents with `let g:comment_overlay_actor = "Codex"` (or Lua:
+  `vim.g.comment_overlay_actor = "Codex"`).
+- Disable automatic attribution with `let g:comment_overlay_actor = v:false`
+  (or Lua: `vim.g.comment_overlay_actor = false`).
+
+External updates:
+- If `.nvim-comments.json` is updated outside Neovim, comments auto-reload on
+  |FocusGained| and when entering buffers.
+- Use `:CommentRefresh` for an immediate manual reload.
+
+Resolved thread behavior:
+- Resolved threads are shown with resolved styling for root and replies.
+- Resolved threads start collapsed by default in the list panel.
+- Use `z` in the list panel to expand/collapse the selected thread.
 
 ==============================================================================
 10. API                                                *comment-overlay-api*
@@ -291,9 +329,13 @@ The Lua API is available via `require("comment-overlay")`.
 setup({opts})           Initialize the plugin. See
                         |comment-overlay-configuration|.
 
-                                             *comment-overlay.add_comment()*
+                                            *comment-overlay.add_comment()*
 add_comment()           Add a comment on the current cursor line. Opens a
                         floating window for text input.
+
+                                           *comment-overlay.reply_comment()*
+reply_comment({id})     Reply to a comment by ID. If {id} is omitted, prompts
+                        from the comment under cursor.
 
                                             *comment-overlay.edit_comment()*
 edit_comment({id})      Edit a comment by its ID. Opens a floating window
