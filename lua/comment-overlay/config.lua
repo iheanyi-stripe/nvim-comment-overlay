@@ -4,6 +4,7 @@
 local M = {}
 
 ---@class CommentOverlayConfig
+---@field actor string|false|nil
 ---@field signs CommentOverlaySigns
 ---@field highlights CommentOverlayHighlights
 ---@field float CommentOverlayFloat
@@ -56,6 +57,11 @@ local M = {}
 ---@field line_end number  -- 1-indexed, inclusive
 ---@field body string
 ---@field author string|nil
+---@field kind string|nil  -- "comment" | "reply" (nil treated as "comment")
+---@field thread_id string|nil  -- root comment id
+---@field parent_id string|nil  -- parent comment id for replies
+---@field resolved_by string|nil
+---@field resolved_at string|nil  -- ISO 8601
 ---@field created_at string  -- ISO 8601
 ---@field updated_at string  -- ISO 8601
 ---@field resolved boolean
@@ -63,6 +69,7 @@ local M = {}
 M.namespace = "comment_overlay"
 
 M.defaults = {
+  actor = nil,
   signs = {
     enabled = true,
     icon = "󰆉",  -- nerd font comment icon
@@ -108,6 +115,33 @@ M.options = {}
 
 function M.setup(opts)
   M.options = vim.tbl_deep_extend("force", {}, M.defaults, opts or {})
+end
+
+--- Resolve actor identity used for author/resolved_by fields.
+--- Priority: opts.actor -> g:comment_overlay_actor -> env -> nil.
+---@return string|nil
+function M.get_actor()
+  local actor_opt = M.options.actor
+  if actor_opt == false then
+    return nil
+  end
+  if type(actor_opt) == "string" and actor_opt ~= "" then
+    return actor_opt
+  end
+
+  local from_global = vim.g.comment_overlay_actor
+  if from_global == false then
+    return nil
+  end
+  if type(from_global) == "string" and from_global ~= "" then
+    return from_global
+  end
+
+  local from_env = vim.env.USER or vim.env.LOGNAME
+  if from_env and from_env ~= "" then
+    return from_env
+  end
+  return nil
 end
 
 return M

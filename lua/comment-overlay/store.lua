@@ -14,6 +14,9 @@ local project_root_cache = nil
 ---@type boolean
 local loaded = false
 
+---@type number|nil
+local last_loaded_mtime = nil
+
 --- Return current ISO 8601 timestamp.
 ---@return string
 local function iso_now()
@@ -24,6 +27,45 @@ end
 ---@return string
 local function generate_id()
   return string.format("%s_%04x", os.date("%Y%m%d%H%M%S"), math.random(0, 0xFFFF))
+end
+
+--- Return true when comment is a reply.
+---@param comment Comment
+---@return boolean
+local function is_reply(comment)
+  return comment.kind == "reply"
+end
+
+--- Return root thread id for a comment.
+---@param comment Comment
+---@return string
+local function thread_id(comment)
+  return comment.thread_id or comment.id
+end
+
+--- Ensure thread fields exist for legacy comments loaded from disk.
+---@param comment Comment
+local function normalize_comment(comment)
+  if not comment.kind or comment.kind == "" then
+    comment.kind = "comment"
+  end
+  if not comment.thread_id or comment.thread_id == "" then
+    comment.thread_id = comment.id
+  end
+  if comment.kind == "reply" then
+    if not comment.parent_id or comment.parent_id == "" then
+      comment.parent_id = comment.thread_id
+    end
+  else
+    comment.parent_id = nil
+  end
+end
+
+--- Normalize all loaded comments.
+local function normalize_comments()
+  for _, c in ipairs(comments) do
+    normalize_comment(c)
+  end
 end
 
 --- Find project root by walking up from CWD looking for `.git` directory,
@@ -87,6 +129,16 @@ local function storage_path()
   return root .. "/" .. filename
 end
 
+--- Get storage file mtime or nil if file doesn't exist.
+---@return number|nil
+local function storage_mtime()
+  local mtime = vim.fn.getftime(storage_path())
+  if mtime < 0 then
+    return nil
+  end
+  return mtime
+end
+
 --- Convert an absolute path to a path relative to project root.
 ---@param absolute_path string
 ---@return string
@@ -103,19 +155,32 @@ end
 
 --- Load comments from the JSON file on disk into memory.
 --- Safe against missing or corrupt files (starts with empty list).
-function M.load()
+---@param force? boolean
+---@return boolean reloaded true if in-memory cache changed from disk read
+function M.load(force)
+  if loaded and not force then
+    return false
+  end
+
   local path = storage_path()
   if vim.fn.filereadable(path) ~= 1 then
     comments = {}
     loaded = true
-    return
+    last_loaded_mtime = nil
+    return true
+  end
+
+  local mtime = storage_mtime()
+  if loaded and mtime == last_loaded_mtime then
+    return false
   end
 
   local ok, lines = pcall(vim.fn.readfile, path)
   if not ok or #lines == 0 then
     comments = {}
     loaded = true
-    return
+    last_loaded_mtime = mtime
+    return true
   end
 
   local raw = table.concat(lines, "\n")
@@ -124,11 +189,15 @@ function M.load()
     vim.notify("[comment-overlay] corrupt JSON file, starting fresh", vim.log.levels.WARN)
     comments = {}
     loaded = true
-    return
+    last_loaded_mtime = mtime
+    return true
   end
 
   comments = data.comments or {}
+  normalize_comments()
   loaded = true
+  last_loaded_mtime = mtime
+  return true
 end
 
 --- Simple JSON pretty-printer (2-space indent).
@@ -176,7 +245,9 @@ function M.save()
   local write_ok, err = pcall(vim.fn.writefile, lines, path)
   if not write_ok then
     vim.notify("[comment-overlay] failed to save: " .. tostring(err), vim.log.levels.ERROR)
+    return
   end
+  last_loaded_mtime = storage_mtime()
 end
 
 --- Ensure comments are loaded before any read/write operation.
@@ -186,31 +257,68 @@ local function ensure_loaded()
   end
 end
 
---- Add a new comment.
+--- Add a comment or reply.
 ---@param file string relative path from project root
 ---@param line_start number 1-indexed
 ---@param line_end number 1-indexed, inclusive
 ---@param body string
 ---@param author string|nil
+---@param parent_id string|nil
 ---@return Comment
-function M.add(file, line_start, line_end, body, author)
+function M.add(file, line_start, line_end, body, author, parent_id)
   ensure_loaded()
+
   local now = iso_now()
+  local kind = parent_id and "reply" or "comment"
+  local parent = parent_id and M.get(parent_id) or nil
+
+  if parent then
+    file = parent.file
+    line_start = parent.line_start
+    line_end = parent.line_end
+  else
+    parent_id = nil
+    kind = "comment"
+  end
+
+  local id = generate_id()
+  local tid = parent and thread_id(parent) or id
+
   ---@type Comment
   local comment = {
-    id = generate_id(),
+    id = id,
     file = file,
     line_start = line_start,
     line_end = line_end,
     body = body,
     author = author,
+    kind = kind,
+    thread_id = tid,
+    parent_id = parent_id,
+    resolved_by = nil,
+    resolved_at = nil,
     created_at = now,
     updated_at = now,
     resolved = false,
   }
+
   table.insert(comments, comment)
   M.save()
   return comment
+end
+
+--- Add a reply to an existing comment/thread item.
+---@param parent_id string
+---@param body string
+---@param author string|nil
+---@return Comment|nil
+function M.add_reply(parent_id, body, author)
+  ensure_loaded()
+  local parent = M.get(parent_id)
+  if not parent then
+    return nil
+  end
+  return M.add(parent.file, parent.line_start, parent.line_end, body, author, parent.id)
 end
 
 --- Get a comment by its ID.
@@ -226,35 +334,83 @@ function M.get(id)
   return nil
 end
 
---- Get all comments for a given file, sorted by line_start ascending.
+--- Get all comments for a given file.
 ---@param file string relative path
+---@param opts? { roots_only?: boolean, thread_id?: string }
 ---@return Comment[]
-function M.get_for_file(file)
+function M.get_for_file(file, opts)
   ensure_loaded()
+  opts = opts or {}
+
   local result = {}
   for _, c in ipairs(comments) do
     if c.file == file then
+      if opts.thread_id and thread_id(c) ~= opts.thread_id then
+        goto continue
+      end
+      if opts.roots_only and is_reply(c) then
+        goto continue
+      end
       table.insert(result, c)
     end
+    ::continue::
   end
+
   table.sort(result, function(a, b)
-    return a.line_start < b.line_start
+    if a.line_start ~= b.line_start then
+      return a.line_start < b.line_start
+    end
+    if thread_id(a) ~= thread_id(b) then
+      return thread_id(a) < thread_id(b)
+    end
+    if (a.created_at or "") ~= (b.created_at or "") then
+      return (a.created_at or "") < (b.created_at or "")
+    end
+    return a.id < b.id
   end)
+
   return result
 end
 
 --- Get all comments that span a given line (line_start <= line <= line_end).
 ---@param file string relative path
 ---@param line number 1-indexed
+---@param opts? { roots_only?: boolean }
 ---@return Comment[]
-function M.get_for_line(file, line)
+function M.get_for_line(file, line, opts)
   ensure_loaded()
+  opts = opts or {}
+
   local result = {}
   for _, c in ipairs(comments) do
     if c.file == file and c.line_start <= line and line <= c.line_end then
+      if opts.roots_only and is_reply(c) then
+        goto continue
+      end
+      table.insert(result, c)
+    end
+    ::continue::
+  end
+  return result
+end
+
+--- Get all comments in a thread by thread id.
+---@param tid string
+---@return Comment[]
+function M.get_thread(tid)
+  ensure_loaded()
+  local result = {}
+  for _, c in ipairs(comments) do
+    if thread_id(c) == tid then
       table.insert(result, c)
     end
   end
+  table.sort(result, function(a, b)
+    if (a.created_at or "") ~= (b.created_at or "") then
+      return (a.created_at or "") < (b.created_at or "")
+    end
+    return a.id < b.id
+  end)
   return result
 end
 
@@ -276,28 +432,53 @@ function M.update(id, body)
 end
 
 --- Delete a comment by ID.
+--- Deleting a root comment deletes the whole thread.
 ---@param id string
 ---@return boolean true if deleted
 function M.delete(id)
   ensure_loaded()
-  for i, c in ipairs(comments) do
-    if c.id == id then
+  local target = M.get(id)
+  if not target then
+    return false
+  end
+
+  if is_reply(target) then
+    for i, c in ipairs(comments) do
+      if c.id == id then
+        table.remove(comments, i)
+        M.save()
+        return true
+      end
+    end
+    return false
+  end
+
+  local tid = thread_id(target)
+  for i = #comments, 1, -1 do
+    if thread_id(comments[i]) == tid then
       table.remove(comments, i)
-      M.save()
-      return true
     end
   end
-  return false
+  M.save()
+  return true
 end
 
 --- Toggle the resolved status of a comment.
 ---@param id string
+---@param resolved_by string|nil
 ---@return Comment|nil updated comment, or nil if not found
-function M.resolve(id)
+function M.resolve(id, resolved_by)
   ensure_loaded()
   for _, c in ipairs(comments) do
     if c.id == id then
       c.resolved = not c.resolved
+      if c.resolved then
+        c.resolved_by = resolved_by
+        c.resolved_at = iso_now()
+      else
+        c.resolved_by = nil
+        c.resolved_at = nil
+      end
       c.updated_at = iso_now()
       M.save()
       return c
@@ -311,6 +492,26 @@ end
 function M.get_all()
   ensure_loaded()
   return comments
+end
+
+--- Force reload comments from disk.
+---@return boolean reloaded
+function M.reload()
+  loaded = false
+  return M.load(true)
+end
+
+--- Reload comments only if the storage file changed on disk.
+---@return boolean reloaded
+function M.reload_if_changed()
+  if not loaded then
+    return M.load(true)
+  end
+  local mtime = storage_mtime()
+  if mtime ~= last_loaded_mtime then
+    return M.load(true)
+  end
+  return false
 end
 
 return M

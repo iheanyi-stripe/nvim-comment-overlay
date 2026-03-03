@@ -88,6 +88,18 @@ end
 -- Purple-blue hue so it's distinguishable from selection/search highlights.
 local TINT = "#8878c8"
 
+---@param comment Comment
+---@return boolean
+local function is_reply(comment)
+  return comment.kind == "reply"
+end
+
+---@param comment Comment
+---@return string
+local function thread_id(comment)
+  return comment.thread_id or comment.id
+end
+
 --- Define highlight groups derived from the active colorscheme.
 --- Safe to call multiple times (e.g. on colorscheme change).
 function M.setup()
@@ -135,12 +147,16 @@ end
 --- Build a truncated preview string from comment body.
 ---@param body string
 ---@param resolved boolean
+---@param reply_count number
 ---@return string
-local function preview_text(body, resolved)
+local function preview_text(body, resolved, reply_count)
   -- Collapse to single line, trim whitespace
   local text = body:gsub("\n", " "):gsub("^%s+", ""):gsub("%s+$", "")
   if #text > 40 then
     text = text:sub(1, 40) .. "..."
+  end
+  if reply_count > 0 then
+    text = text .. string.format(" (%d replies)", reply_count)
   end
   if resolved then
     text = "  " .. text
@@ -176,6 +192,15 @@ function M.render_buffer(bufnr, comments)
   local signs = opts.signs
   local sorted = sort_comments(comments)
 
+  -- Count replies for each thread so root line previews can show thread activity.
+  local reply_count_by_thread = {} ---@type table<string, number>
+  for _, comment in ipairs(sorted) do
+    if is_reply(comment) then
+      local tid = thread_id(comment)
+      reply_count_by_thread[tid] = (reply_count_by_thread[tid] or 0) + 1
+    end
+  end
+
   -- First pass: collect all virtual text segments and sign info per line.
   -- This lets us show ALL comments that start on a given line.
   local line_has_sign = {} ---@type table<number, boolean>
@@ -183,6 +208,10 @@ function M.render_buffer(bufnr, comments)
   local line_virt_texts = {} ---@type table<number, {string,string}[]>
 
   for _, comment in ipairs(sorted) do
+    if is_reply(comment) then
+      goto continue
+    end
+
     local first_line = comment.line_start - 1 -- 0-indexed
     local last_line = comment.line_end - 1
 
@@ -210,11 +239,12 @@ function M.render_buffer(bufnr, comments)
 
     -- Collect virtual text for the first line of this comment
     local virt_hl = comment.resolved and "CommentOverlayResolved" or hl.comment_virt
-    local text = " " .. preview_text(comment.body, comment.resolved)
+    local text = " " .. preview_text(comment.body, comment.resolved, reply_count_by_thread[thread_id(comment)] or 0)
     if not line_virt_texts[first_line] then
       line_virt_texts[first_line] = {}
     end
     table.insert(line_virt_texts[first_line], { text, virt_hl })
+    ::continue::
   end
 
   -- Second pass: place aggregated virtual text (all comments on that line).

@@ -9,8 +9,10 @@ Pure Lua. No dependencies. Requires Neovim 0.7+.
 - **Line highlights** with warm amber background tint on commented lines
 - **Sign column icons** (`󰆉`) on the gutter for quick scanning
 - **Virtual text** previews at end-of-line showing truncated comment body
+- **Reply-aware line previews** showing thread activity like `(2 replies)`
 - **Floating windows** for adding, editing, and previewing comments
 - **Side panel** listing all comments with status, navigation, and inline actions
+- **Threaded discussions** with per-comment replies in the side panel
 - **Resolved/active** status tracking per comment
 - **Dark and light** theme support (auto-detected)
 - **Per-project storage** in `.nvim-comments.json` at project root
@@ -61,8 +63,13 @@ This plugin pairs well with a Claude Code skill or custom command that reads `.n
 |-----|--------|
 | `<CR>` / `o` | Jump to comment location |
 | `e` | Edit comment |
+| `t` | Reply to selected comment |
 | `d` | Delete comment (with confirmation) |
-| `r` | Toggle resolved/active status |
+| `r` | Toggle resolved/active on parent thread |
+| `f` | Toggle focused thread view |
+| `z` | Toggle collapse for selected thread |
+| `+` / `-` | Grow/shrink list panel size |
+| `R` | Reload comments from disk |
 | `j` / `k` | Jump to next/previous comment |
 | `a` | Add new comment (switches to source) |
 | `q` | Close panel |
@@ -77,9 +84,12 @@ All actions are also available as commands:
 :CommentDelete       Delete comment under cursor
 :CommentPreview      Preview comment in floating window
 :CommentResolve      Toggle resolved status
+:CommentReply        Reply to comment under cursor
 :CommentList         Toggle comment list panel
 :CommentNext         Jump to next comment
 :CommentPrev         Jump to previous comment
+:CommentRefresh      Reload comments from disk and repaint overlays
+:CommentListWidth    Set list panel size (`:CommentListWidth 60`)
 :CommentToggleSigns  Toggle highlight/sign visibility
 ```
 
@@ -110,7 +120,7 @@ require("comment-overlay").setup({
   },
   list = {
     position = "right",   -- "right", "left", or "bottom"
-    width = 40,
+    width = 40,            -- default width for left/right list panel
     height = 15,           -- for bottom position
     auto_preview = true,
   },
@@ -133,6 +143,31 @@ require("comment-overlay").setup({
 ## Storage
 
 Comments are stored in `.nvim-comments.json` at the project root (auto-detected via `.git` directory). The file is human-readable JSON — you can commit it to share comments with your team or add it to `.gitignore`.
+
+Threaded comments use:
+- `kind`: `"comment"` or `"reply"`
+- `thread_id`: root comment id for a thread
+- `parent_id`: direct parent comment id (replies only)
+
+By default, new comments are attributed to your `$USER`/`$LOGNAME`, and resolving a comment records `resolved_by` with the same actor. To override this (for agents), set either:
+
+```lua
+vim.g.comment_overlay_actor = "Codex" -- or "Claude", etc.
+```
+
+or plugin config:
+
+```lua
+require("comment-overlay").setup({
+  actor = "Codex",
+})
+```
+
+Set `vim.g.comment_overlay_actor = false` to disable automatic attribution.
+
+When the storage file changes externally, the plugin now auto-reloads on `FocusGained`/buffer enter. You can also force reload with `:CommentRefresh`.
+
+When a thread is resolved, replies in that thread are rendered in resolved style in the list panel as well, and resolved threads start collapsed by default (toggle with `z`).
 
 ## License
 
