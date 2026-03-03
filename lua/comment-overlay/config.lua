@@ -48,6 +48,7 @@ local M = {}
 ---@field next string
 ---@field prev string
 ---@field toggle_list string
+---@field toggle_global_list string
 ---@field toggle_signs string
 
 ---@class Comment
@@ -58,8 +59,10 @@ local M = {}
 ---@field body string
 ---@field author string|nil
 ---@field kind string|nil  -- "comment" | "reply" (nil treated as "comment")
+---@field root_id string|nil  -- root comment id for replies
 ---@field thread_id string|nil  -- root comment id
 ---@field parent_id string|nil  -- root comment id for one-level replies
+---@field reply_ids string[]|nil  -- reply ids for top-level comments
 ---@field resolved_by string|nil
 ---@field resolved_at string|nil  -- ISO 8601
 ---@field created_at string  -- ISO 8601
@@ -106,6 +109,7 @@ M.defaults = {
     next = "]c",
     prev = "[c",
     toggle_list = "<leader>cl",
+    toggle_global_list = "nL",
     toggle_signs = "<leader>cs",
   },
 }

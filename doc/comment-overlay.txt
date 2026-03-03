@@ -103,6 +103,9 @@ All actions are available as user commands.
 :CommentList            Toggle the comment list panel. See
                         |comment-overlay-list-panel|.
 
+                                                      *:CommentGlobalList*
+:CommentGlobalList      Toggle the global comment list panel (all files).
+
                                                              *:CommentNext*
 :CommentNext            Jump to the next comment in the file. Wraps to the
                         first comment when past the last.
@@ -113,6 +116,10 @@ All actions are available as user commands.
 
                                                           *:CommentRefresh*
 :CommentRefresh         Reload comments from disk and repaint overlays/list.
+
+                                                  *:CommentMigrateV1ToV2*
+:CommentMigrateV1ToV2   Convert legacy storage shape (`comments` array) to
+                        v2 shape (`comments` map + `files` index) and save.
 
                                                         *:CommentListWidth*
 :CommentListWidth {n}   Set list panel size. For left/right panels, adjusts
@@ -136,6 +143,8 @@ Global ~
 `<leader>cd`  (n)       Delete comment under cursor.
                                               *comment-overlay-keymap-list*
 `<leader>cl`  (n)       Toggle comment list panel.
+                                        *comment-overlay-keymap-global-list*
+`nL`          (n)       Toggle global comment list panel.
                                               *comment-overlay-keymap-signs*
 `<leader>cs`  (n)       Toggle sign/highlight visibility.
                                               *comment-overlay-keymap-next*
@@ -211,6 +220,7 @@ Pass a table to `setup()`. All fields are optional; these are the defaults:
       next = "]c",
       prev = "[c",
       toggle_list = "<leader>cl",
+      toggle_global_list = "nL",
       toggle_signs = "<leader>cs",
     },
   })
@@ -248,6 +258,8 @@ keymaps.edit            String. Keymap to edit a comment.
 keymaps.next            String. Keymap to jump to the next comment.
 keymaps.prev            String. Keymap to jump to the previous comment.
 keymaps.toggle_list     String. Keymap to toggle the list panel.
+keymaps.toggle_global_list
+                        String. Keymap to toggle global comment list panel.
 keymaps.toggle_signs    String. Keymap to toggle decoration visibility.
 
 ==============================================================================
@@ -287,6 +299,11 @@ Storage path resolution order:
 3. Walk up from CWD looking for an existing `.nvim-comments.json`.
 4. Fall back to CWD.
 
+Storage format:
+- v1 (legacy): `comments` is an array.
+- v2 (current): `version = 2`, `comments` is a map keyed by comment id, and
+  `files` maps file paths to arrays of root comment ids.
+
 Each comment stores:
   - `id`          Unique identifier (timestamp + random hex)
   - `file`        Relative path from project root
@@ -295,8 +312,10 @@ Each comment stores:
   - `body`        Comment text
   - `author`      Optional author name
   - `kind`        `"comment"` (default) or `"reply"`
-  - `thread_id`   Root comment id for the thread
-  - `parent_id`   Root comment id (for one-level replies)
+  - `root_id`     Root comment id (for replies)
+  - `reply_ids`   Reply id list (for root comments)
+  - `thread_id`   Legacy-compatible root id field
+  - `parent_id`   Legacy-compatible root id field for replies
   - `resolved_by` Optional actor that resolved the comment
   - `resolved_at` ISO 8601 timestamp when resolved
   - `created_at`  ISO 8601 timestamp

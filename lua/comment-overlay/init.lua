@@ -8,6 +8,7 @@ local store = require("comment-overlay.store")
 local highlights = require("comment-overlay.highlights")
 local ui = require("comment-overlay.ui")
 local list = require("comment-overlay.list")
+local global_list = require("comment-overlay.global-list")
 
 local augroup_name = "CommentOverlay"
 local signs_visible = true
@@ -68,6 +69,9 @@ local function refresh_buf()
   if list.is_open and list.is_open() then
     list.refresh()
   end
+  if global_list.is_open and global_list.is_open() then
+    global_list.refresh()
+  end
 end
 
 --- Render comments for a buffer (clear + display).
@@ -98,6 +102,9 @@ local function refresh_all()
   end
   if list.is_open and list.is_open() then
     list.refresh()
+  end
+  if global_list.is_open and global_list.is_open() then
+    global_list.refresh()
   end
 end
 
@@ -278,6 +285,10 @@ local function register_commands()
     list.toggle()
   end, {})
 
+  vim.api.nvim_create_user_command("CommentGlobalList", function()
+    global_list.toggle()
+  end, {})
+
   vim.api.nvim_create_user_command("CommentNext", function()
     next_comment()
   end, {})
@@ -294,11 +305,11 @@ local function register_commands()
     refresh_from_disk(true)
   end, {})
 
-  -- Undocumented maintenance command for pre-release data cleanup.
-  vim.api.nvim_create_user_command("CommentMigrateRepliesToRoot", function()
-    local updated = store.migrate_replies_to_root()
+  -- Undocumented maintenance command for migrating legacy storage to v2.
+  vim.api.nvim_create_user_command("CommentMigrateV1ToV2", function()
+    local updated = store.migrate_v1_to_v2()
     refresh_all()
-    vim.notify(string.format("Reply migration complete: %d updated", updated), vim.log.levels.INFO)
+    vim.notify(string.format("V1->V2 migration complete: %d comments converted", updated), vim.log.levels.INFO)
   end, {})
 
   vim.api.nvim_create_user_command("CommentListWidth", function(cmd)
@@ -357,6 +368,10 @@ local function register_keymaps()
   vim.keymap.set("n", km.toggle_list, function()
     list.toggle()
   end, vim.tbl_extend("force", opts, { desc = "Toggle comment list" }))
+
+  vim.keymap.set("n", km.toggle_global_list, function()
+    global_list.toggle()
+  end, vim.tbl_extend("force", opts, { desc = "Toggle global comment list" }))
 
   vim.keymap.set("n", km.toggle_signs, function()
     toggle_signs()

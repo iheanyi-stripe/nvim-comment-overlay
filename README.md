@@ -44,6 +44,7 @@ This plugin pairs well with a Claude Code skill or custom command that reads `.n
 | `<leader>ce` | normal | Edit comment under cursor |
 | `<leader>cd` | normal | Delete comment under cursor |
 | `<leader>cl` | normal | Toggle comment list panel |
+| `nL` | normal | Toggle global comment list panel |
 | `<leader>cs` | normal | Toggle sign/highlight visibility |
 | `]c` | normal | Jump to next comment |
 | `[c` | normal | Jump to previous comment |
@@ -86,9 +87,11 @@ All actions are also available as commands:
 :CommentResolve      Toggle resolved status
 :CommentReply        Reply to comment under cursor
 :CommentList         Toggle comment list panel
+:CommentGlobalList   Toggle global comment list panel (all files)
 :CommentNext         Jump to next comment
 :CommentPrev         Jump to previous comment
 :CommentRefresh      Reload comments from disk and repaint overlays
+:CommentMigrateV1ToV2 Convert legacy `comments` array storage to v2 format
 :CommentListWidth    Set list panel size (`:CommentListWidth 60`)
 :CommentToggleSigns  Toggle highlight/sign visibility
 ```
@@ -135,6 +138,7 @@ require("comment-overlay").setup({
     next = "]c",
     prev = "[c",
     toggle_list = "<leader>cl",
+    toggle_global_list = "nL",
     toggle_signs = "<leader>cs",
   },
 })
@@ -146,8 +150,8 @@ Comments are stored in `.nvim-comments.json` at the project root (auto-detected 
 
 Threaded comments use:
 - `kind`: `"comment"` or `"reply"`
-- `thread_id`: root comment id for a thread
-- `parent_id`: root comment id for replies (one-level threads)
+- `root_id`: root comment id for replies
+- `reply_ids`: list of reply ids on root comments
 
 By default, new comments are attributed to your `$USER`/`$LOGNAME`, and resolving a comment records `resolved_by` with the same actor. To override this (for agents), set either:
 
@@ -168,6 +172,11 @@ Set `vim.g.comment_overlay_actor = false` to disable automatic attribution.
 When the storage file changes externally, the plugin now auto-reloads on `FocusGained`/buffer enter. You can also force reload with `:CommentRefresh`.
 
 When a thread is resolved, replies in that thread are rendered in resolved style in the list panel as well, and resolved threads start collapsed by default (toggle with `z`).
+
+Storage format:
+- New format (v2) stores `comments` as a map keyed by id and `files` as `file -> [root_comment_ids]`.
+- Legacy format (v1) with `comments` as an array is still readable.
+- Run `:CommentMigrateV1ToV2` to persist a loaded legacy file in v2 shape.
 
 ## License
 
