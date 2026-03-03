@@ -44,7 +44,7 @@ This plugin pairs well with a Claude Code skill or custom command that reads `.n
 | `<leader>ce` | normal | Edit comment under cursor |
 | `<leader>cd` | normal | Delete comment under cursor |
 | `<leader>cl` | normal | Toggle comment list panel |
-| `nL` | normal | Toggle global comment list panel |
+| `cL` | normal | Toggle global comment list panel |
 | `<leader>cs` | normal | Toggle sign/highlight visibility |
 | `]c` | normal | Jump to next comment |
 | `[c` | normal | Jump to previous comment |
@@ -138,7 +138,7 @@ require("comment-overlay").setup({
     next = "]c",
     prev = "[c",
     toggle_list = "<leader>cl",
-    toggle_global_list = "nL",
+    toggle_global_list = "cL",
     toggle_signs = "<leader>cs",
   },
 })

@@ -109,7 +109,7 @@ M.defaults = {
     next = "]c",
     prev = "[c",
     toggle_list = "<leader>cl",
-    toggle_global_list = "nL",
+    toggle_global_list = "cL",
     toggle_signs = "<leader>cs",
   },
 }

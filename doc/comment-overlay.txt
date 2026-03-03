@@ -144,7 +144,7 @@ Global ~
                                               *comment-overlay-keymap-list*
 `<leader>cl`  (n)       Toggle comment list panel.
                                         *comment-overlay-keymap-global-list*
-`nL`          (n)       Toggle global comment list panel.
+`cL`          (n)       Toggle global comment list panel.
                                               *comment-overlay-keymap-signs*
 `<leader>cs`  (n)       Toggle sign/highlight visibility.
                                               *comment-overlay-keymap-next*
@@ -220,7 +220,7 @@ Pass a table to `setup()`. All fields are optional; these are the defaults:
       next = "]c",
       prev = "[c",
       toggle_list = "<leader>cl",
-      toggle_global_list = "nL",
+      toggle_global_list = "cL",
       toggle_signs = "<leader>cs",
     },
   })
