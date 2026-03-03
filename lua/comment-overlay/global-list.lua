@@ -28,6 +28,31 @@ end
 
 local ns = vim.api.nvim_create_namespace("comment_overlay_global_list")
 
+local HL = {
+  title = "CommentOverlayGlobalTitle",
+  separator = "CommentOverlayGlobalSeparator",
+  file = "CommentOverlayGlobalFile",
+  range = "CommentOverlayGlobalRange",
+  row_active = "CommentOverlayGlobalRowActive",
+  row_resolved = "CommentOverlayGlobalRowResolved",
+  meta = "CommentOverlayGlobalMeta",
+}
+
+local function ensure_highlights()
+  local function def(name, opts)
+    if vim.fn.hlexists(name) == 0 then
+      vim.api.nvim_set_hl(0, name, opts)
+    end
+  end
+  def(HL.title, { bold = true, link = "Title" })
+  def(HL.separator, { link = "Comment" })
+  def(HL.file, { bold = true, link = "Identifier" })
+  def(HL.range, { bold = true, link = "Number" })
+  def(HL.row_active, { link = "Normal" })
+  def(HL.row_resolved, { bold = true, link = "DiagnosticOk" })
+  def(HL.meta, { link = "Comment" })
+end
+
 local function comment_count_for_file(file)
   local items = storage().get_for_file(file)
   return #items
@@ -50,11 +75,11 @@ local function build_content(width)
 
   local title = string.format(" 󰍉 All Comments  files:%d", #files)
   lines[#lines + 1] = title
-  hls[#hls + 1] = { line = #lines - 1, hl = "Title" }
+  hls[#hls + 1] = { line = #lines - 1, col_start = 0, col_end = #title, hl = HL.title }
 
   local sep = string.rep("─", math.max(width, 20))
   lines[#lines + 1] = sep
-  hls[#hls + 1] = { line = #lines - 1, hl = "Comment" }
+  hls[#hls + 1] = { line = #lines - 1, col_start = 0, col_end = #sep, hl = HL.separator }
 
   if #files == 0 then
     lines[#lines + 1] = ""
@@ -68,7 +93,7 @@ local function build_content(width)
       local count = comment_count_for_file(file)
       local header = string.format(" %s %s (%d comments)", icon, file, count)
       lines[#lines + 1] = header
-      hls[#hls + 1] = { line = #lines - 1, hl = "Identifier" }
+      hls[#hls + 1] = { line = #lines - 1, col_start = 0, col_end = #header, hl = HL.file }
       line_to_file[#lines] = file
 
       if not collapsed then
@@ -80,10 +105,40 @@ local function build_content(width)
           end
           local author = root.author or "unknown"
           local replies = #(root.reply_ids or {})
-          local suffix = replies > 0 and string.format(" (%d replies)", replies) or ""
-          local row = string.format("   %s  %s (%s)%s", line_range_label(root), preview, author, suffix)
+          local icon = root.resolved and "✓" or "●"
+          local row = string.format("   %s  %s %s", line_range_label(root), icon, preview)
+          local metadata = author
+          if replies > 0 then
+            local word = replies == 1 and "reply" or "replies"
+            metadata = string.format("%s · %d %s", metadata, replies, word)
+          end
+
           lines[#lines + 1] = row
-          hls[#hls + 1] = { line = #lines - 1, hl = "Normal" }
+          local row_line = #lines
+          local range = line_range_label(root)
+          local range_start = 3
+          local range_end = range_start + #range
+          hls[#hls + 1] = {
+            line = row_line - 1,
+            col_start = 0,
+            col_end = #row,
+            hl = root.resolved and HL.row_resolved or HL.row_active,
+          }
+          hls[#hls + 1] = {
+            line = row_line - 1,
+            col_start = range_start,
+            col_end = range_end,
+            hl = HL.range,
+          }
+          line_to_comment[row_line] = root.id
+
+          lines[#lines + 1] = "      " .. metadata
+          hls[#hls + 1] = {
+            line = #lines - 1,
+            col_start = 0,
+            col_end = -1,
+            hl = HL.meta,
+          }
           line_to_comment[#lines] = root.id
         end
       end
@@ -92,9 +147,9 @@ local function build_content(width)
 
   lines[#lines + 1] = ""
   lines[#lines + 1] = sep
-  hls[#hls + 1] = { line = #lines - 1, hl = "Comment" }
+  hls[#hls + 1] = { line = #lines - 1, col_start = 0, col_end = #sep, hl = HL.separator }
   lines[#lines + 1] = " q close  <CR>/o open/toggle  z toggle-file  R refresh"
-  hls[#hls + 1] = { line = #lines - 1, hl = "Comment" }
+  hls[#hls + 1] = { line = #lines - 1, col_start = 0, col_end = -1, hl = HL.meta }
 
   return lines, hls, line_to_comment, line_to_file
 end
@@ -119,7 +174,11 @@ local function render()
 
   vim.api.nvim_buf_clear_namespace(state.buf, ns, 0, -1)
   for _, h in ipairs(hls) do
-    vim.api.nvim_buf_add_highlight(state.buf, ns, h.hl, h.line, 0, -1)
+    local col_end = h.col_end
+    if col_end == -1 then
+      col_end = #lines[h.line + 1] or 0
+    end
+    vim.api.nvim_buf_add_highlight(state.buf, ns, h.hl, h.line, h.col_start or 0, col_end)
   end
 end
 
@@ -224,6 +283,7 @@ function M.open()
   vim.wo[state.win].cursorline = true
   vim.wo[state.win].winfixwidth = true
 
+  ensure_highlights()
   setup_keymaps()
   render()
 
