@@ -380,6 +380,9 @@ local function render()
 
   local opts = config.options.list or config.defaults.list
   local width = opts.width or 40
+  if win_valid(state.win) then
+    width = vim.api.nvim_win_get_width(state.win)
+  end
 
   local comments = get_comments()
   local lines, hls, line_map, header_lines = build_content(comments, width)
