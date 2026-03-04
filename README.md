@@ -73,6 +73,7 @@ This plugin pairs well with a Claude Code skill or custom command that reads `.n
 | `z` | Toggle collapse for selected thread |
 | `+` / `-` | Grow/shrink list panel size |
 | `R` | Reload comments from disk |
+| `y` | Copy resolved storage JSON filepath |
 | `j` / `k` | Jump to next/previous comment |
 | `a` | Add new comment (switches to source) |
 | `q` | Close panel |

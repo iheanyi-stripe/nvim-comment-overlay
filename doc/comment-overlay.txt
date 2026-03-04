@@ -182,6 +182,7 @@ List panel ~
 `z`                     Toggle collapse for selected thread.
 `+` / `-`               Increase/decrease panel size.
 `R`                     Reload comments from disk.
+`y`                     Copy resolved storage JSON filepath.
 `j` / `k`               Jump to next/previous comment in the list.
 `a`                     Add new comment (switches to source buffer).
 `q`                     Close panel.

@@ -148,7 +148,7 @@ local function build_content(width)
   lines[#lines + 1] = ""
   lines[#lines + 1] = sep
   hls[#hls + 1] = { line = #lines - 1, col_start = 0, col_end = #sep, hl = HL.separator }
-  lines[#lines + 1] = " q close  <CR>/o open/toggle  z toggle-file  R refresh"
+  lines[#lines + 1] = " q close  <CR>/o open/toggle  z toggle-file  y copy-storage-path  R refresh"
   hls[#hls + 1] = { line = #lines - 1, col_start = 0, col_end = -1, hl = HL.meta }
 
   return lines, hls, line_to_comment, line_to_file
@@ -240,6 +240,13 @@ local function refresh()
   render()
 end
 
+local function copy_storage_path()
+  local path = storage().get_storage_path({ resolve = true })
+  local reg = vim.fn.has("clipboard") == 1 and "+" or '"'
+  vim.fn.setreg(reg, path)
+  vim.notify("Comment storage path copied: " .. path, vim.log.levels.INFO)
+end
+
 local function setup_keymaps()
   if not buf_valid() then
     return
@@ -250,6 +257,7 @@ local function setup_keymaps()
   vim.keymap.set("n", "<CR>", jump_to_comment, opts)
   vim.keymap.set("n", "o", jump_to_comment, opts)
   vim.keymap.set("n", "z", toggle_current_file, opts)
+  vim.keymap.set("n", "y", copy_storage_path, opts)
   vim.keymap.set("n", "R", refresh, opts)
 end
 
