@@ -117,6 +117,13 @@ All actions are available as user commands.
                                                           *:CommentRefresh*
 :CommentRefresh         Reload comments from disk and repaint overlays/list.
 
+                                                  *:CommentCopyStoragePath*
+:CommentCopyStoragePath Copy resolved storage JSON filepath to the clipboard
+                        register (`+`) when available, else unnamed register.
+
+                                                      *:CommentOpenStorage*
+:CommentOpenStorage     Open storage JSON file in the current window.
+
                                                   *:CommentMigrateV1ToV2*
 :CommentMigrateV1ToV2   Convert legacy storage shape (`comments` array) to
                         v2 shape (`comments` map + `files` index) and save.
@@ -147,6 +154,10 @@ Global ~
 `cL`          (n)       Toggle global comment list panel.
                                               *comment-overlay-keymap-signs*
 `<leader>cs`  (n)       Toggle sign/highlight visibility.
+                                       *comment-overlay-keymap-copy-storage*
+`<leader>cy`  (n)       Copy resolved storage JSON filepath.
+                                       *comment-overlay-keymap-open-storage*
+`<leader>co`  (n)       Open storage JSON file.
                                               *comment-overlay-keymap-next*
 `]c`          (n)       Jump to next comment.
                                               *comment-overlay-keymap-prev*
@@ -222,6 +233,8 @@ Pass a table to `setup()`. All fields are optional; these are the defaults:
       toggle_list = "<leader>cl",
       toggle_global_list = "cL",
       toggle_signs = "<leader>cs",
+      copy_storage_path = "<leader>cy",
+      open_storage = "<leader>co",
     },
   })
 <
@@ -261,6 +274,9 @@ keymaps.toggle_list     String. Keymap to toggle the list panel.
 keymaps.toggle_global_list
                         String. Keymap to toggle global comment list panel.
 keymaps.toggle_signs    String. Keymap to toggle decoration visibility.
+keymaps.copy_storage_path
+                        String. Keymap to copy storage file path.
+keymaps.open_storage    String. Keymap to open storage file.
 
 ==============================================================================
 8. HIGHLIGHTS                                    *comment-overlay-highlights*

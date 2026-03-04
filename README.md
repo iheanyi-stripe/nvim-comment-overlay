@@ -46,6 +46,8 @@ This plugin pairs well with a Claude Code skill or custom command that reads `.n
 | `<leader>cl` | normal | Toggle comment list panel |
 | `cL` | normal | Toggle global comment list panel |
 | `<leader>cs` | normal | Toggle sign/highlight visibility |
+| `<leader>cy` | normal | Copy resolved comment JSON filepath |
+| `<leader>co` | normal | Open comment JSON file |
 | `]c` | normal | Jump to next comment |
 | `[c` | normal | Jump to previous comment |
 
@@ -91,6 +93,8 @@ All actions are also available as commands:
 :CommentNext         Jump to next comment
 :CommentPrev         Jump to previous comment
 :CommentRefresh      Reload comments from disk and repaint overlays
+:CommentCopyStoragePath Copy resolved storage JSON filepath to clipboard/register
+:CommentOpenStorage  Open storage JSON file in current window
 :CommentMigrateV1ToV2 Convert legacy `comments` array storage to v2 format
 :CommentListWidth    Set list panel size (`:CommentListWidth 60`)
 :CommentToggleSigns  Toggle highlight/sign visibility
@@ -140,6 +144,8 @@ require("comment-overlay").setup({
     toggle_list = "<leader>cl",
     toggle_global_list = "cL",
     toggle_signs = "<leader>cs",
+    copy_storage_path = "<leader>cy",
+    open_storage = "<leader>co",
   },
 })
 ```

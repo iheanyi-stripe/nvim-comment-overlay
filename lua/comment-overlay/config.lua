@@ -50,6 +50,8 @@ local M = {}
 ---@field toggle_list string
 ---@field toggle_global_list string
 ---@field toggle_signs string
+---@field copy_storage_path string
+---@field open_storage string
 
 ---@class Comment
 ---@field id string
@@ -111,6 +113,8 @@ M.defaults = {
     toggle_list = "<leader>cl",
     toggle_global_list = "cL",
     toggle_signs = "<leader>cs",
+    copy_storage_path = "<leader>cy",
+    open_storage = "<leader>co",
   },
 }
 

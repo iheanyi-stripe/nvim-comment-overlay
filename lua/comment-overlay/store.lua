@@ -4,6 +4,7 @@
 local config = require("comment-overlay.config")
 
 local M = {}
+local uv = vim.uv or vim.loop
 
 ---@type table<string, Comment>
 local comments = {}
@@ -232,6 +233,33 @@ local function storage_path()
   local storage_cfg = config.options.storage or config.defaults.storage
   local filename = storage_cfg.filename or ".nvim-comments.json"
   return root .. "/" .. filename
+end
+
+--- Get the full path to the JSON storage file.
+--- Optionally resolves symlinks for the path/root.
+---@param opts? { resolve?: boolean }
+---@return string
+function M.get_storage_path(opts)
+  local path = storage_path()
+  opts = opts or {}
+  if not opts.resolve then
+    return path
+  end
+
+  local resolved_path = uv and uv.fs_realpath and uv.fs_realpath(path) or nil
+  if resolved_path and resolved_path ~= "" then
+    return resolved_path
+  end
+
+  local root = M.get_project_root()
+  local resolved_root = uv and uv.fs_realpath and uv.fs_realpath(root) or nil
+  if resolved_root and resolved_root ~= "" then
+    local storage_cfg = config.options.storage or config.defaults.storage
+    local filename = storage_cfg.filename or ".nvim-comments.json"
+    return resolved_root:gsub("/$", "") .. "/" .. filename
+  end
+
+  return path
 end
 
 --- Get storage file mtime or nil if file doesn't exist.
